@@ -35,6 +35,9 @@ def client(monkeypatch):
     table_mock.select.return_value.or_.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
     table_mock.select.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
     table_mock.select.return_value.limit.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+    # get_mp_by_constituency's office_* follow-up lookup (migration 049):
+    # .table("mp_profiles").select(...).eq("id", mp_id).limit(1).execute()
+    table_mock.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
 
     rpc_mock = MagicMock()
     rpc_mock.execute.return_value = MagicMock(data=None)
@@ -60,6 +63,37 @@ def test_get_mp_by_constituency_happy_path(client):
     assert res.status_code == 200, res.text
     assert res.json()["full_name"] == "Test MP"
     sb.rpc.assert_called_with("get_mp_by_constituency", {"p_code": "P999"})
+
+
+def test_get_mp_by_constituency_includes_office_contact_when_present(client):
+    """office_address/phone/email (migration 049) are fetched by mp_id and
+    merged into the constituency-lookup response — not selected by the
+    get_mp_by_constituency() SQL function itself (that function predates
+    the columns), so this is a real follow-up query, not a passthrough."""
+    c, sb, table_mock, rpc_mock = client
+    rpc_mock.execute.return_value = MagicMock(data=[_FAKE_MP])
+    table_mock.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+        data=[{"office_address": "Dewan Rakyat, Parlimen Malaysia", "office_phone": None, "office_email": None}]
+    )
+
+    res = c.get("/api/v1/parliament/mp/P999")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["office_address"] == "Dewan Rakyat, Parlimen Malaysia"
+    assert body["office_phone"] is None
+
+
+def test_get_mp_by_constituency_office_contact_absent_stays_absent(client):
+    """No fabricated fallback when nothing has been ingested into the new
+    columns yet — the response simply carries no office_* keys, never a
+    placeholder string."""
+    c, sb, table_mock, rpc_mock = client
+    rpc_mock.execute.return_value = MagicMock(data=[_FAKE_MP])
+    # Default fixture mock already returns data=[] for the office lookup.
+
+    res = c.get("/api/v1/parliament/mp/P999")
+    assert res.status_code == 200, res.text
+    assert "office_address" not in res.json()
 
 
 def test_get_mp_by_constituency_not_found(client):

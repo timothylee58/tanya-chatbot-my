@@ -49,9 +49,8 @@ export function PostcodePersonalizer({ className, inputClassName }: PostcodePers
     if (stored) setStateId(stored);
   }, []);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const resolved = resolveStateFromPostcode(postcode);
+  function tryResolve(value: string) {
+    const resolved = resolveStateFromPostcode(value);
     if (!resolved) {
       setInvalid(true);
       return;
@@ -61,10 +60,31 @@ export function PostcodePersonalizer({ className, inputClassName }: PostcodePers
     writeStoredState(resolved);
   }
 
+  // Explicit submit still works (desktop Enter key), but the primary path is
+  // auto-resolving the moment a plausible 5-digit code is typed — a numeric
+  // mobile keypad often has no "Go"/"Enter" affordance wired to form submit,
+  // so requiring it left the control looking broken on touch devices
+  // (Cursor Bugbot finding on PR #202).
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    tryResolve(postcode);
+  }
+
   if (stateId) {
+    const stateLabel = t(`agents.welfare-eligibility.state.${stateId}`);
+    // Deliberately NOT a "find your MP" link here. A postcode only resolves
+    // to a STATE (see resolveStateFromPostcode's own caveat) — mp_profiles
+    // has no postcode/constituency-boundary crosswalk to narrow further —
+    // and router_node's structured parliament lookup only fires for a
+    // specific named MP or constituency, not a "list MPs in my state"
+    // query (see router_node.py's classifier prompt); routing a state-only
+    // resolution into chat here would set up an answer that doesn't
+    // reliably arrive. The real "postcode → your specific MP, with office
+    // contact" flow needs constituency-boundary data this repo doesn't
+    // have yet — see PR #202's description for that open question.
     return (
       <p className={className}>
-        {t('landing.postcode.personalized').replace('{state}', t(`agents.welfare-eligibility.state.${stateId}`))}{' '}
+        {t('landing.postcode.personalized').replace('{state}', stateLabel)}{' '}
         <button
           type="button"
           onClick={() => {
@@ -91,8 +111,10 @@ export function PostcodePersonalizer({ className, inputClassName }: PostcodePers
         maxLength={5}
         value={postcode}
         onChange={(e) => {
-          setPostcode(e.target.value.replace(/\D/g, ''));
+          const digits = e.target.value.replace(/\D/g, '').slice(0, 5);
+          setPostcode(digits);
           setInvalid(false);
+          if (digits.length === 5) tryResolve(digits);
         }}
         placeholder={t('landing.postcode.placeholder')}
         aria-label={t('landing.postcode.placeholder')}

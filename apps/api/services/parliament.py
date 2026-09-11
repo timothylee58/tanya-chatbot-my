@@ -30,7 +30,33 @@ async def get_mp_by_constituency(
         ).execute()
         return res.data[0] if res.data else None
 
-    return await asyncio.to_thread(_rpc)
+    rpc_result = await asyncio.to_thread(_rpc)
+    if rpc_result is None:
+        return None
+    # Build a new dict rather than mutating rpc_result in place — it may be
+    # (and in supabase-py practice, is) the exact row object the client
+    # returned, and mutating a caller-owned object in place is a real trap
+    # for any caller that holds another reference to the same row.
+    result = dict(rpc_result)
+    # get_mp_by_constituency() (migration 025) predates the office_* columns
+    # (migration 049) and doesn't select them — fetch them directly by mp_id
+    # rather than widening the SQL function's RETURNS TABLE for three
+    # columns the function's own callers don't otherwise need.
+    mp_id = result.get("mp_id")
+    if mp_id:
+
+        def _contact() -> dict[str, Any]:
+            res = (
+                supabase_client.table("mp_profiles")
+                .select("office_address,office_phone,office_email")
+                .eq("id", mp_id)
+                .limit(1)
+                .execute()
+            )
+            return res.data[0] if res.data else {}
+
+        result.update(await asyncio.to_thread(_contact))
+    return result
 
 
 async def search_mps(supabase_client: Client, query: str, limit: int = 20) -> list[dict[str, Any]]:
@@ -47,7 +73,8 @@ async def search_mps(supabase_client: Client, query: str, limit: int = 20) -> li
         res = (
             supabase_client.table("mp_profiles")
             .select(
-                "id,full_name,constituency_code,constituency_name,party,state,is_active,parlimen_url"
+                "id,full_name,constituency_code,constituency_name,party,state,is_active,"
+                "parlimen_url,office_address,office_phone,office_email"
             )
             .or_(
                 f"full_name.ilike.{pattern},constituency_name.ilike.{pattern},"
