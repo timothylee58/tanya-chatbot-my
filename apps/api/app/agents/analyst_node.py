@@ -213,6 +213,7 @@ async def analyst_node(state: AgentState) -> dict:
             # disagree. None when the chunk has no date — the UI renders
             # nothing rather than inventing one.
             effective_date=_staleness_ref(chunk),
+            retrieved_at=chunk.retrieved_at,
         )
         for score, _, chunk in top3
         if chunk.source_url  # omit fabricated / empty URLs per CLAUDE.md

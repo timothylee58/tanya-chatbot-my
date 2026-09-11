@@ -91,6 +91,19 @@ export function CitationChip({ citation, index }: CitationChipProps) {
   }, [pinned]);
 
   const effectiveDate = formatEffectiveDate(citation.effective_date, locale);
+  // retrieved_at is a full timestamptz (not a bare YYYY-MM-DD like
+  // effective_date), so plain `new Date(iso)` carries no timezone ambiguity
+  // — it already encodes an instant, not a calendar date to be interpreted
+  // in the viewer's zone.
+  const retrievedDate = citation.retrieved_at ? new Date(citation.retrieved_at) : null;
+  const retrievedLabel =
+    retrievedDate && !Number.isNaN(retrievedDate.getTime())
+      ? retrievedDate.toLocaleDateString(locale === 'zh' ? 'zh-CN' : locale === 'ms' ? 'ms-MY' : 'en-MY', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        })
+      : null;
   const confidencePct = typeof citation.confidence === 'number' ? Math.round(citation.confidence * 100) : null;
   const confidenceColor =
     confidencePct === null
@@ -165,6 +178,11 @@ export function CitationChip({ citation, index }: CitationChipProps) {
             {confidencePct !== null && (
               <p className={`mt-1.5 text-[11px] font-medium ${confidenceColor}`}>
                 {t('citation.confidence')}: {confidencePct}%
+              </p>
+            )}
+            {retrievedLabel && (
+              <p className="mt-1 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                {t('citation.retrieved').replace('{date}', retrievedLabel)}
               </p>
             )}
             {citation.stale_disclaimer && (

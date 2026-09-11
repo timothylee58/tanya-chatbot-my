@@ -12,6 +12,11 @@ export interface Citation {
    * date or a fetch timestamp, which would misrepresent how current the
    * underlying government source actually is. */
   effective_date?: string | null;
+  /** ISO timestamp NakTahu last ingested/verified this specific source
+   * (document_chunks.created_at, via migration 048). Distinct from
+   * effective_date: this says "we checked this on {date}", not "this rule
+   * took effect on {date}". Render nothing when missing. */
+  retrieved_at?: string | null;
 }
 
 /** Real government contact for a personal-record query NakTahu can't answer

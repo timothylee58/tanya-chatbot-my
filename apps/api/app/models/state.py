@@ -23,6 +23,12 @@ class Citation(TypedDict):
     # Never synthesise a date here; None must render as no date, not as
     # today's date or an ingestion timestamp.
     effective_date: NotRequired[str | None]
+    # ISO timestamp NakTahu last ingested/verified this specific source, from
+    # document_chunks.created_at (migration 048). NOT the same thing as
+    # effective_date above — this says "we checked this source on {date}",
+    # not "this rule took effect on {date}". Both can be shown together.
+    # None when the chunk predates the RPC returning this column.
+    retrieved_at: NotRequired[str | None]
 
 
 class AgentState(TypedDict, total=False):
