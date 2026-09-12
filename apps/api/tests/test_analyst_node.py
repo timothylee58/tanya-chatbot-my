@@ -24,6 +24,7 @@ def _make_chunk(
     source_date: str | None = None,
     effective_date: str | None = None,
     superseded_by: str | None = None,
+    retrieved_at: str | None = None,
     chunk_id: str = "test-id",
 ) -> ChunkResult:
     return ChunkResult(
@@ -38,6 +39,7 @@ def _make_chunk(
         source_date=source_date,
         effective_date=effective_date,
         superseded_by=superseded_by,
+        retrieved_at=retrieved_at,
     )
 
 
@@ -56,6 +58,35 @@ async def test_analyst_scores_gov_url() -> None:
     citations = result["citations"]
     # gov.my chunk should be first
     assert citations[0]["url"] == "https://www.hasil.gov.my"
+
+
+@pytest.mark.asyncio
+async def test_analyst_citation_carries_retrieved_at() -> None:
+    """retrieved_at (when the source was ingested) is threaded from the
+    ChunkResult into the built Citation unchanged, and stays independent of
+    effective_date (when the cited rule takes effect) — the two must never
+    be conflated."""
+    chunk = _make_chunk(
+        effective_date="2024-01-01",
+        retrieved_at="2026-08-30T12:00:00+00:00",
+    )
+
+    result = await analyst_node({"query": "cukai pendapatan", "retrieved_chunks": [chunk]})
+
+    citation = result["citations"][0]
+    assert citation["retrieved_at"] == "2026-08-30T12:00:00+00:00"
+    assert citation["effective_date"] == "2024-01-01"
+
+
+@pytest.mark.asyncio
+async def test_analyst_citation_retrieved_at_none_when_absent() -> None:
+    """A chunk from before migration 048 (no retrieved_at from the RPC)
+    must render as no date, not a fabricated one."""
+    chunk = _make_chunk(retrieved_at=None)
+
+    result = await analyst_node({"query": "cukai pendapatan", "retrieved_chunks": [chunk]})
+
+    assert result["citations"][0]["retrieved_at"] is None
 
 
 @pytest.mark.asyncio

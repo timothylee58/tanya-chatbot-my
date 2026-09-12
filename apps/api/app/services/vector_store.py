@@ -24,6 +24,11 @@ class ChunkResult:
     # id of the chunk that replaces this one; superseded chunks are hard-rejected
     # by analyst_node and never cited.
     superseded_by: str | None = None
+    # When this chunk was ingested (document_chunks.created_at, surfaced by
+    # migration 048). Distinct from effective_date: this is when NakTahu last
+    # verified/pulled the source, not when the cited rule takes effect. ISO
+    # timestamp string or None for rows from before the RPC returned it.
+    retrieved_at: str | None = None
 
 
 async def _get_client() -> AsyncClient:
@@ -69,6 +74,7 @@ async def hybrid_search(
                 source_date=row.get("source_date"),
                 effective_date=row.get("effective_date"),
                 superseded_by=row.get("superseded_by"),
+                retrieved_at=row.get("retrieved_at"),
             )
         )
     return results

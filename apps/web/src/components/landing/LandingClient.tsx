@@ -17,6 +17,7 @@ import { LandingHeader } from '@/components/layout/LandingHeader';
 import { TypewriterQueryWrapper } from './TypewriterQueryWrapper';
 import { LandingFeatureShowcase } from './LandingFeatureShowcase';
 import { AgencyTrustGrid } from './AgencyTrustGrid';
+import { PostcodePersonalizer } from './PostcodePersonalizer';
 import { AgentSpotlight } from './AgentSpotlight';
 import { ComparisonSection } from './ComparisonSection';
 import { InteractiveAnswerPreview } from './InteractiveAnswerPreview';
@@ -471,6 +472,16 @@ export function LandingClient() {
             </select>
           </motion.div>
         )}
+
+        {/* Year-round, unlike the seasonal Merdeka picker above — resolves a
+            postcode to a state and remembers it locally so a returning
+            visitor sees a light state-aware touch without re-entering it. */}
+        <motion.div custom={5} variants={fadeUp} initial="hidden" animate="show" className="w-full max-w-xl">
+          <PostcodePersonalizer
+            className={`flex flex-wrap items-center gap-2 ${seasonalVideoActive ? heroMutedText : mutedText}`}
+            inputClassName={`w-40 border rounded-full px-3.5 py-1.5 text-xs font-medium locale-nowrap transition-colors ${heroDomainPillClass}`}
+          />
+        </motion.div>
 
         <motion.div
           custom={6}
